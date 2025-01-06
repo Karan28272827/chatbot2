@@ -6,3 +6,4 @@ elevenlabs
 pygame
 google-cloud-speech
 speechrecognition
+dotenv
