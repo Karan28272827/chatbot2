@@ -111,9 +111,13 @@ def speech_to_text():
 
         # Set up Google Cloud recognition configuration
         audio = speech.RecognitionAudio(content=audio_content)
+        
+        # Use the sample rate directly from the audio
+        sample_rate = 44100  # Adjusted based on the error message, use the correct sample rate for your audio
+
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=16000,
+            sample_rate_hertz=sample_rate,  # Set sample rate to 44100
             language_code="en-US",
         )
 
@@ -128,6 +132,12 @@ def speech_to_text():
         else:
             st.error("No speech was detected.")
             return ""
+
+    except Exception as e:
+        # Handle errors during recognition
+        st.error(f"Error during speech recognition: {e}")
+        return ""
+
 
     except Exception as e:
         # Handle errors during recognition
