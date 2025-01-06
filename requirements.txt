@@ -1,0 +1,8 @@
+streamlit
+requests
+python-docx
+PyPDF2
+elevenlabs
+pygame
+google-cloud-speech
+speechrecognition
