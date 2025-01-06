@@ -10,6 +10,7 @@ import tempfile
 import os
 from google.cloud import speech
 import speech_recognition as sr
+from dotenv import load_dotenv
 
 # Define the Chatbot API URL and headers
 api_url = "https://llm.kindo.ai/v1/chat/completions"
@@ -89,8 +90,10 @@ def text_to_speech(text, voice_id="voice_id"):
 
 # Function to capture speech and convert it to text using Google Cloud Speech API
 def speech_to_text():
+    load_dotenv()
     # Set up Google Cloud credentials
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "D:/Chatbot/google-cloud-credentials.json"  # Update the path to your credentials file
+    google_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
     
     # Initialize the Google Cloud Speech client
     client = speech.SpeechClient()
