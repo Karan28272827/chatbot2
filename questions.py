@@ -8,16 +8,7 @@ from elevenlabs import VoiceSettings
 import pygame
 import tempfile
 import os
-from google.cloud import speech
-import speech_recognition as sr
-from dotenv import load_dotenv
-
-# Define the Chatbot API URL and headers
-api_url = "https://llm.kindo.ai/v1/chat/completions"
-headers = {
-    "api-key": "09e75bff-6192-436d-936e-2d0f9230a3a6-a896f6311e363485",  # Replace with your API key
-    "content-type": "application/json"
-}
+import base64
 
 # Initialize ElevenLabs client
 elevenlabs_client = ElevenLabs(api_key="ae38aba75e228787e91ac4991fc771f8")  # Replace with your ElevenLabs API key
@@ -38,6 +29,12 @@ def extract_text_from_word(file):
 
 # Function to query the Chatbot API
 def ask_question(question, context, model_name="azure/gpt-4o"):
+    api_url = "https://llm.kindo.ai/v1/chat/completions"
+    headers = {
+        "api-key": "09e75bff-6192-436d-936e-2d0f9230a3a6-a896f6311e363485",  # Replace with your API key
+        "content-type": "application/json"
+    }
+    
     messages = [
         {"role": "system", "content": "You are Navin Kale, the co-founder of Swayam Talks. Answer in English and in short paragraphs, not more than 100 words. Use natural human speech, you can also pause in between sentences for a more human-like response."},
         {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
@@ -88,64 +85,40 @@ def text_to_speech(text, voice_id="voice_id"):
     except Exception as e:
         st.error(f"Text-to-speech conversion failed: {e}")
 
-# Function to capture speech and convert it to text using Google Cloud Speech API
-def speech_to_text():
-    load_dotenv()
-    # Set up Google Cloud credentials
-    google_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
-    
-    # Initialize the Google Cloud Speech client
-    client = speech.SpeechClient()
-
-    # Initialize the recognizer from speech_recognition library
-    recognizer = sr.Recognizer()
-
-    # Start listening with Streamlit spinner
-    with st.spinner("Listening..."):
-        # Use speech_recognition to capture audio from the microphone
-        with sr.Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source)  # Optional: Adjust for ambient noise
-            audio = recognizer.listen(source)
-    
-    try:
-        # Convert the audio to WAV data
-        audio_content = audio.get_wav_data()
-
-        # Set up Google Cloud recognition configuration
-        audio = speech.RecognitionAudio(content=audio_content)
-        
-        # Use the sample rate directly from the audio
-        sample_rate = 44100  # Adjusted based on the error message, use the correct sample rate for your audio
-
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=sample_rate,  # Set sample rate to 44100
-            language_code="en-US",
-        )
-
-        # Send the audio to Google Cloud Speech-to-Text for recognition
-        response = client.recognize(config=config, audio=audio)
-        
-        # Extract and return the recognized text
-        if response.results:
-            recognized_text = response.results[0].alternatives[0].transcript
-            st.write(f"Recognized: {recognized_text}")
-            return recognized_text
+# Function to capture speech and convert it to text using the API Key directly
+def speech_to_text(audio_file_path, api_key):
+    # Define the API URL
+    url = f"https://speech.googleapis.com/v1/speech:recognize?key={api_key}"
+ 
+    # Read and encode the audio file
+    with open(audio_file_path, "rb") as audio_file:
+        audio_content = base64.b64encode(audio_file.read()).decode("utf-8")
+ 
+    # Create the request payload
+    payload = {
+        "config": {
+            "encoding": "LINEAR16",  # Change based on your audio file format
+            "sampleRateHertz": 16000,  # Replace with your audio's sample rate
+            "languageCode": "en-US"
+        },
+        "audio": {
+            "content": audio_content
+        }
+    }
+ 
+    # Send the request to the API
+    response = requests.post(url, json=payload)
+ 
+    # Check the response
+    if response.status_code == 200:
+        result = response.json()
+        if "results" in result:
+            transcript = result["results"][0]["alternatives"][0]["transcript"]
+            return f"Transcript: {transcript}"
         else:
-            st.error("No speech was detected.")
-            return ""
-
-    except Exception as e:
-        # Handle errors during recognition
-        st.error(f"Error during speech recognition: {e}")
-        return ""
-
-
-    except Exception as e:
-        # Handle errors during recognition
-        st.error(f"Error during speech recognition: {e}")
-        return ""
+            return "No speech recognized in the audio."
+    else:
+        return f"Error: {response.status_code}, {response.text}"
 
 # Streamlit app
 def main():
@@ -171,7 +144,14 @@ def main():
         if question_type == "Type":
             question = st.text_input("Ask a question:")
         elif question_type == "Speak":
-            question = speech_to_text()
+            # Capture speech using a temporary audio file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
+                # Assume you captured the speech here (you can integrate a recognizer or use any method)
+                # For example, save the audio content to `temp_audio_file.name`
+                # temp_audio_file.write(audio_content)
+                
+                # Pass the path to the speech-to-text function
+                question = speech_to_text(temp_audio_file.name, "AIzaSyDCm8ZTQMO_vs7RDMrkneE8EBs0AHV1w5o")  # Replace with your API key
 
         if question:
             # Get the answer from the API
