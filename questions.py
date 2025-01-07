@@ -193,6 +193,7 @@ from docx import Document
 from PyPDF2 import PdfReader
 from elevenlabs import ElevenLabs
 from elevenlabs import VoiceSettings
+from streamlit_webrtc import webrtc_streamer
 import tempfile
 import os
 import base64
@@ -281,77 +282,21 @@ def main():
  
         # Input for questions
         question_type = st.radio("How do you want to ask the question?", ("Type", "Speak"))
+        question = None  # Initialize question to avoid UnboundLocalError
  
         if question_type == "Speak":
-            st.markdown("""
-<h3>Record Your Question</h3>
-<p>Click the button below to start recording your voice. Click stop when you're done.</p>
-<button id="recordButton">Record</button>
-<button id="stopButton" disabled>Stop</button>
-<p id="status"></p>
-<audio id="audioPlayback" controls></audio>
-<form id="uploadForm">
-<input type="hidden" id="audioData" name="audioData">
-</form>
-<script>
-                let mediaRecorder;
-                let audioChunks = [];
-                const recordButton = document.getElementById("recordButton");
-                const stopButton = document.getElementById("stopButton");
-                const status = document.getElementById("status");
-                const audioPlayback = document.getElementById("audioPlayback");
-                const audioDataInput = document.getElementById("audioData");
- 
-                recordButton.addEventListener("click", async () => {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    status.innerText = "Recording...";
-                    recordButton.disabled = true;
-                    stopButton.disabled = false;
- 
-                    mediaRecorder.addEventListener("dataavailable", (event) => {
-                        audioChunks.push(event.data);
-                    });
- 
-                    mediaRecorder.addEventListener("stop", () => {
-                        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-                        const audioUrl = URL.createObjectURL(audioBlob);
-                        audioPlayback.src = audioUrl;
- 
-                        // Encode audio to base64 and send to hidden input
-                        const reader = new FileReader();
-                        reader.readAsDataURL(audioBlob);
-                        reader.onloadend = () => {
-                            const base64String = reader.result.split(",")[1];
-                            audioDataInput.value = base64String;
-                        };
- 
-                        status.innerText = "Recording stopped.";
-                        recordButton.disabled = false;
-                        stopButton.disabled = true;
-                    });
-                });
- 
-                stopButton.addEventListener("click", () => {
-                    mediaRecorder.stop();
-                    audioChunks = [];
-                });
-</script>
-            """, unsafe_allow_html=True)
- 
-            # Get recorded audio data from JavaScript
-            audio_data = st.text_input("Paste the Base64 audio data here after recording:")
-            if audio_data:
+            st.write("### Record your audio:")
+            audio_file = webrtc_streamer(key="audio", media_stream_constraints={"audio": True})
+            if audio_file and audio_file.audio_data:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
-                    temp_audio_file.write(base64.b64decode(audio_data))
+                    temp_audio_file.write(audio_file.audio_data)
                     question = speech_to_text(temp_audio_file.name, "AIzaSyDCm8ZTQMO_vs7RDMrkneE8EBs0AHV1w5o")
                     st.write(f"Recognized Question: {question}")
  
         elif question_type == "Type":
             question = st.text_input("Ask a question:")
  
-        if question:
+        if question:  # Ensure question is checked only after initialization
             # Get the answer from the API
             answer = ask_question(question, context, model_name="azure/gpt-4o")
             if answer:
