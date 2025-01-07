@@ -53,22 +53,34 @@ def ask_question(question, context, model_name="azure/gpt-4o"):
         return None
 
 # Function to play audio using pygame
-def play_audio_stream(audio_stream):
-    pygame.mixer.init()
+# def play_audio_stream(audio_stream):
+    # pygame.mixer.init()
     
-    # Save audio stream to a temporary file
+    # # Save audio stream to a temporary file
+    # with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
+    #     for chunk in audio_stream:
+    #         temp_audio.write(chunk)
+    #     temp_audio_name = temp_audio.name
+
+    # # Load and play the audio file
+    # pygame.mixer.music.load(temp_audio_name)
+    # pygame.mixer.music.play()
+    
+    # # Wait until the audio is finished
+    # while pygame.mixer.music.get_busy():
+    #     pygame.time.Clock().tick(10)
+
+def play_audio_stream(audio_stream):
+    """
+    Save the audio stream to a file and use Streamlit's audio widget to play it.
+    """
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
         for chunk in audio_stream:
             temp_audio.write(chunk)
         temp_audio_name = temp_audio.name
-
-    # Load and play the audio file
-    pygame.mixer.music.load(temp_audio_name)
-    pygame.mixer.music.play()
-    
-    # Wait until the audio is finished
-    while pygame.mixer.music.get_busy():
-        pygame.time.Clock().tick(10)
+ 
+    # Use Streamlit's audio widget
+    st.audio(temp_audio_name, format="audio/mp3")
 
 # Function to convert text to speech
 def text_to_speech(text, voice_id="voice_id"):
