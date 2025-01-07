@@ -8,7 +8,7 @@ from elevenlabs import VoiceSettings
 import pygame
 import tempfile
 import os
-import base64
+import base64  
 
 # Initialize ElevenLabs client
 elevenlabs_client = ElevenLabs(api_key="ae38aba75e228787e91ac4991fc771f8")  # Replace with your ElevenLabs API key
