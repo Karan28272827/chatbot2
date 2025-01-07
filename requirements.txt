@@ -8,4 +8,4 @@ google-cloud-speech
 speechrecognition
 python-dotenv
 sounddevice
-pyaudio
+
