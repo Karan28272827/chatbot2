@@ -193,10 +193,12 @@ from docx import Document
 from PyPDF2 import PdfReader
 from elevenlabs import ElevenLabs
 from elevenlabs import VoiceSettings
-from streamlit_webrtc import webrtc_streamer
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
 import tempfile
 import os
 import base64
+import av
+from typing import List
  
 # Initialize ElevenLabs client
 elevenlabs_client = ElevenLabs(api_key="ae38aba75e228787e91ac4991fc771f8")  # Replace with your ElevenLabs API key
@@ -262,6 +264,15 @@ def text_to_speech(text, voice_id="voice_id"):
     except Exception as e:
         st.error(f"Text-to-speech conversion failed: {e}")
  
+# Audio Processor for WebRTC
+class AudioProcessor:
+    def __init__(self):
+        self.audio_frames: List[bytes] = []
+ 
+    def recv_audio(self, frame: av.AudioFrame):
+        audio_data = frame.to_ndarray()
+        self.audio_frames.append(audio_data.tobytes())
+ 
 # Streamlit app
 def main():
     st.title("Swayam Talks Chatbot")
@@ -286,12 +297,29 @@ def main():
  
         if question_type == "Speak":
             st.write("### Record your audio:")
-            audio_file = webrtc_streamer(key="audio", media_stream_constraints={"audio": True})
-            if audio_file and audio_file.audio_data:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
-                    temp_audio_file.write(audio_file.audio_data)
-                    question = speech_to_text(temp_audio_file.name, "AIzaSyDCm8ZTQMO_vs7RDMrkneE8EBs0AHV1w5o")
-                    st.write(f"Recognized Question: {question}")
+            audio_processor = AudioProcessor()
+            webrtc_ctx = webrtc_streamer(
+                key="audio-stream",
+                mode=WebRtcMode.SENDONLY,
+                client_settings=ClientSettings(
+                    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+                    media_stream_constraints={"audio": True},
+                ),
+                audio_receiver_size=512,
+                audio_receiver_callback=audio_processor.recv_audio,
+            )
+ 
+            if webrtc_ctx and webrtc_ctx.state.playing:
+                if st.button("Process Audio"):
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
+                        # Save audio frames to a WAV file
+                        with wave.open(temp_audio_file.name, "wb") as wf:
+                            wf.setnchannels(1)
+                            wf.setsampwidth(2)  # 2 bytes per sample
+                            wf.setframerate(16000)
+                            wf.writeframes(b"".join(audio_processor.audio_frames))
+                        question = speech_to_text(temp_audio_file.name, "AIzaSyDCm8ZTQMO_vs7RDMrkneE8EBs0AHV1w5o")
+                        st.write(f"Recognized Question: {question}")
  
         elif question_type == "Type":
             question = st.text_input("Ask a question:")
@@ -315,5 +343,3 @@ def main():
  
 if __name__ == "__main__":
     main()
-
-
