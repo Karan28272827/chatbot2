@@ -1,11 +1,10 @@
 streamlit
 requests
-python-docx
 PyPDF2
+python-docx
 elevenlabs
 pygame
-google-cloud-speech
-speechrecognition
-python-dotenv
-streamlit-webrtc
+tempfile
+SpeechRecognition
+
  
