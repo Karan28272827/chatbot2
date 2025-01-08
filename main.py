@@ -1,24 +1,36 @@
 import streamlit as st
 import requests
 import json
-from docx import Document
 from PyPDF2 import PdfReader
+from docx import Document
 from elevenlabs import ElevenLabs
 from elevenlabs import VoiceSettings
 import pygame
 import tempfile
-import os
-import base64  
+import speech_recognition as sr
+
+
+# Define the Chatbot API URL and headers
+api_url = "https://llm.kindo.ai/v1/chat/completions"
+headers = {
+    "api-key": "65a4ec59-8078-42c9-bea1-c39386931615-4802a177ec07e52d",  # Replace with your API key
+    "content-type": "application/json"
+}
 
 # Initialize ElevenLabs client
 elevenlabs_client = ElevenLabs(api_key="ae38aba75e228787e91ac4991fc771f8")  # Replace with your ElevenLabs API key
 
 # Function to extract text from PDF
-def extract_text_from_pdf(uploaded_pdf):
-    pdf_reader = PdfReader(uploaded_pdf)
+def extract_text_from_pdf(file1, file2):
+    pdf_reader = PdfReader(file1)
     text = ""
     for page in pdf_reader.pages:
         text += page.extract_text()
+        
+    pdf_reader2 = PdfReader(file2)
+    for page in pdf_reader2.pages:
+        text += page.extract_text()
+    
     return text
 
 # Function to extract text from Word file
@@ -29,12 +41,6 @@ def extract_text_from_word(file):
 
 # Function to query the Chatbot API
 def ask_question(question, context, model_name="azure/gpt-4o"):
-    api_url = "https://llm.kindo.ai/v1/chat/completions"
-    headers = {
-        "api-key": "09e75bff-6192-436d-936e-2d0f9230a3a6-a896f6311e363485",  # Replace with your API key
-        "content-type": "application/json"
-    }
-    
     messages = [
         {"role": "system", "content": "You are Navin Kale, the co-founder of Swayam Talks. Answer in English and in short paragraphs, not more than 100 words. Use natural human speech, you can also pause in between sentences for a more human-like response."},
         {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
@@ -76,49 +82,32 @@ def text_to_speech(text, voice_id="voice_id"):
         audio_stream = elevenlabs_client.text_to_speech.convert_as_stream(
             voice_id=voice_id,
             text=text, 
-            model_id="eleven_multilingual_v2",  # Added missing comma here
+            model_id = "eleven_multilingual_v2", 
             voice_settings=VoiceSettings(stability=0.5,
-                                         similarity_boost=0.75,
-                                         style=0.0)
+		similarity_boost=0.75,
+		style=0.0)
         )
         play_audio_stream(audio_stream)
     except Exception as e:
         st.error(f"Text-to-speech conversion failed: {e}")
 
-# Function to capture speech and convert it to text using the API Key directly
-def speech_to_text(audio_file_path, api_key):
-    # Define the API URL
-    url = f"https://speech.googleapis.com/v1/speech:recognize?key={api_key}"
- 
-    # Read and encode the audio file
-    with open(audio_file_path, "rb") as audio_file:
-        audio_content = base64.b64encode(audio_file.read()).decode("utf-8")
- 
-    # Create the request payload
-    payload = {
-        "config": {
-            "encoding": "LINEAR16",  # Change based on your audio file format
-            "sampleRateHertz": 16000,  # Replace with your audio's sample rate
-            "languageCode": "en-US"
-        },
-        "audio": {
-            "content": audio_content
-        }
-    }
- 
-    # Send the request to the API
-    response = requests.post(url, json=payload)
- 
-    # Check the response
-    if response.status_code == 200:
-        result = response.json()
-        if "results" in result:
-            transcript = result["results"][0]["alternatives"][0]["transcript"]
-            return f"Transcript: {transcript}"
-        else:
-            return "No speech recognized in the audio."
-    else:
-        return f"Error: {response.status_code}, {response.text}"
+# Function to capture speech and convert it to text using speech_recognition
+def speech_to_text():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.write("Say something...")
+        audio = recognizer.listen(source)
+        try:
+            # Use Google's speech recognition (offline works in most cases)
+            recognized_text = recognizer.recognize_google(audio)
+            st.write(f"Recognized: {recognized_text}")
+            return recognized_text
+        except sr.UnknownValueError:
+            st.error("Could not understand the audio. Please try again.")
+            return ""
+        except sr.RequestError as e:
+            st.error(f"Speech recognition service error: {e}")
+            return ""
 
 # Streamlit app
 def main():
@@ -128,14 +117,17 @@ def main():
     if "qa_history" not in st.session_state:
         st.session_state.qa_history = []
 
-    # Upload PDF file
-    uploaded_pdf = st.file_uploader("Upload a PDF file", type=["pdf"])
-    if uploaded_pdf:
+    # Upload PDF files
+    uploaded_file_1 = st.file_uploader("Upload the first PDF file", type="pdf")
+    uploaded_file_2 = st.file_uploader("Upload the second PDF file", type="pdf")
+
+    # Ensure both files are uploaded
+    if uploaded_file_1 is not None and uploaded_file_2 is not None:
+        # Extract text from the uploaded PDFs
         try:
-            # Extract text from the uploaded PDF
-            context = extract_text_from_pdf(uploaded_pdf)
+            context = extract_text_from_pdf(uploaded_file_1, uploaded_file_2)
         except Exception as e:
-            st.error(f"Error extracting text from PDF: {e}")
+            st.error(f"Error extracting text from the PDFs: {e}")
             return
 
         # Input for questions (either type or speak)
@@ -144,14 +136,7 @@ def main():
         if question_type == "Type":
             question = st.text_input("Ask a question:")
         elif question_type == "Speak":
-            # Capture speech using a temporary audio file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
-                # Assume you captured the speech here (you can integrate a recognizer or use any method)
-                # For example, save the audio content to `temp_audio_file.name`
-                # temp_audio_file.write(audio_content)
-                
-                # Pass the path to the speech-to-text function
-                question = speech_to_text(temp_audio_file.name, "AIzaSyDCm8ZTQMO_vs7RDMrkneE8EBs0AHV1w5o")  # Replace with your API key
+            question = speech_to_text()
 
         if question:
             # Get the answer from the API
@@ -163,12 +148,14 @@ def main():
                 # Convert answer to speech
                 text_to_speech(answer, voice_id="okq89CVMFdUItYbOQspc")  # Replace with your ElevenLabs voice ID
 
-    # Display Q&A history
-    if st.session_state.qa_history:
-        st.write("### Question-Answer History:")
-        for i, (q, a) in enumerate(st.session_state.qa_history, 1):
-            with st.expander(f"Q{i}: {q}"):
-                st.write(a)
+        # Display Q&A history
+        if st.session_state.qa_history:
+            st.write("### Question-Answer History:")
+            for i, (q, a) in enumerate(st.session_state.qa_history, 1):
+                with st.expander(f"Q{i}: {q}"):
+                    st.write(a)
+    else:
+        st.warning("Please upload both PDF files.")
 
 if __name__ == "__main__":
     main()
