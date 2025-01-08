@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 streamlit==1.41.1
 requests==2.28.2
 python-docx==0.8.11
@@ -5,3 +6,15 @@ PyPDF2==3.0.1
 elevenlabs==1.50.3
 pygame==2.6.1
 speechrecognition==3.13.0
+=======
+streamlit
+requests
+PyPDF2
+python-docx
+elevenlabs
+pygame
+tempfile
+SpeechRecognition
+
+ 
+>>>>>>> eaf3e8b9410deb4f1c671c0986498ee5e5c0faa5
